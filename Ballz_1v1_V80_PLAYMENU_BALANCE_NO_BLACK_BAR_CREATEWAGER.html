@@ -3413,6 +3413,15 @@ body.lobbyOn #c{
 
   /* Balances: slimmer */
   #playMask .playBalancesV59{ gap:8px; }
+  #playMask .playBodyV59,
+  #playMask .playBalancesV59,
+  #playMask .balChipV59,
+  #playMask .balAmtV66,
+  #playMask .balAmtV66 b{
+    border-top:none !important;
+    border-bottom:none !important;
+    box-shadow:none !important;
+  }
   #playMask .balChipV59{
     position:relative;
     overflow:hidden;
@@ -5461,45 +5470,47 @@ class BallzGame{
       drawAimLine(this);
     }
 
-    // launcher
-    const uniqueLauncher = (window.BALLZ_UI_PREFS?.launcherUnique !== false);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(this.launchX,this.launchY,6,0,Math.PI*2);
-    if(uniqueLauncher){
-      const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,8);
-      launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
-      launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
-      launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
-      ctx.fillStyle=launchGrad;
-      ctx.shadowColor="rgba(54,214,255,.65)";
-      ctx.shadowBlur=20;
-      ctx.fill();
-      ctx.lineWidth=2;
-      ctx.strokeStyle="rgba(54,214,255,.9)";
-      ctx.stroke();
-
+    // launcher (acts as the final ball in the stream, so hide while firing)
+    if(this.alive && this.state==="WAIT_SHOT"){
+      const uniqueLauncher = (window.BALLZ_UI_PREFS?.launcherUnique !== false);
+      ctx.save();
       ctx.beginPath();
-      ctx.arc(this.launchX,this.launchY,2,0,Math.PI*2);
-      ctx.fillStyle="rgba(234,242,255,.98)";
-      ctx.fill();
-    }else{
-      const bc=getComputedStyle(document.documentElement).getPropertyValue("--ballColor").trim() || "rgba(234,242,255,.96)";
-      const bg=getComputedStyle(document.documentElement).getPropertyValue("--ballGlow").trim() || "rgba(54,214,255,.32)";
-      ctx.fillStyle=bc;
-      ctx.shadowColor=bg;
-      ctx.shadowBlur=18;
-      ctx.fill();
-    }
+      ctx.arc(this.launchX,this.launchY,6,0,Math.PI*2);
+      if(uniqueLauncher){
+        const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,8);
+        launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
+        launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
+        launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
+        ctx.fillStyle=launchGrad;
+        ctx.shadowColor="rgba(54,214,255,.65)";
+        ctx.shadowBlur=20;
+        ctx.fill();
+        ctx.lineWidth=2;
+        ctx.strokeStyle="rgba(54,214,255,.9)";
+        ctx.stroke();
 
-    // ball count beside launcher
-    ctx.shadowBlur=0;
-    ctx.fillStyle="rgba(234,242,255,.96)";
-    ctx.font="900 14px ui-sans-serif,system-ui";
-    ctx.textAlign="left";
-    ctx.textBaseline="middle";
-    ctx.fillText(`x${this.balls}`, this.launchX + 10, this.launchY);
-    ctx.restore();
+        ctx.beginPath();
+        ctx.arc(this.launchX,this.launchY,2,0,Math.PI*2);
+        ctx.fillStyle="rgba(234,242,255,.98)";
+        ctx.fill();
+      }else{
+        const bc=getComputedStyle(document.documentElement).getPropertyValue("--ballColor").trim() || "rgba(234,242,255,.96)";
+        const bg=getComputedStyle(document.documentElement).getPropertyValue("--ballGlow").trim() || "rgba(54,214,255,.32)";
+        ctx.fillStyle=bc;
+        ctx.shadowColor=bg;
+        ctx.shadowBlur=18;
+        ctx.fill();
+      }
+
+      // ball count beside launcher
+      ctx.shadowBlur=0;
+      ctx.fillStyle="rgba(234,242,255,.96)";
+      ctx.font="900 14px ui-sans-serif,system-ui";
+      ctx.textAlign="left";
+      ctx.textBaseline="middle";
+      ctx.fillText(`x${this.balls}`, this.launchX + 10, this.launchY);
+      ctx.restore();
+    }
 
     // balls
     for(const b of this.ballsInFlight){

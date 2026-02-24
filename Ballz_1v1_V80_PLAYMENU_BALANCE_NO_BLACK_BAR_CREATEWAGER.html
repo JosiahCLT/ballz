@@ -52,13 +52,12 @@
 
   /* Topbar */
   .topbar{
-    position:fixed; top:14px; left:14px; right:14px;
-    display:flex; align-items:center; justify-content:space-between;
+    position:fixed; top:14px; left:18px; right:372px;
+    display:flex; align-items:center; justify-content:center;
     z-index:40; pointer-events:none;
   }
-  .topLeft,.topMid,.topRight{display:flex; gap:10px; align-items:center;}
+  .topMid,.topRight{display:flex; gap:10px; align-items:center;}
   .topRight{display:none;}
-  .topMid{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);}
 
   .pill{
     pointer-events:auto;
@@ -75,12 +74,12 @@
   .pill strong{font-weight:900; font-size:14px; letter-spacing:.1px;}
 
   .timerPill{
-    padding:10px 16px;
-    min-width:280px;
+    padding:11px 18px;
+    min-width:300px;
     justify-content:center;
     gap:14px;
-    border-color: rgba(54,214,255,.26);
-    background: linear-gradient(180deg, rgba(54,214,255,.14), rgba(139,92,255,.10));
+    border-color: rgba(54,214,255,.30);
+    background: linear-gradient(180deg, rgba(54,214,255,.16), rgba(139,92,255,.10));
   }
   .timerBig{
     font-size:20px; font-weight:1000; letter-spacing:.4px;
@@ -206,6 +205,10 @@
   .v.vio{ color:var(--vio); }
   .v.gold{ color:var(--gold); }
   .v.ok{ color:var(--ok); }
+
+  .rightFeature.hidden{display:none !important;}
+  .stat .v.good{color:var(--ok);}
+  .stat .v.bad{color:var(--red);}
 
   .alerts{
     flex:1;
@@ -4353,24 +4356,10 @@ body.lobbyOn #c{
 <body class="theme-soft">
 
 <div class="topbar">
-  <div class="topLeft">
-    <div class="pill">
-      <div>
-        <div class="tag">Status</div>
-        <strong id="statusText">Idle</strong>
-      </div>
-      <div style="width:1px;height:26px;background:rgba(36,54,104,.55)"></div>
-      <div>
-        <div class="tag">Match</div>
-        <strong id="matchText">—</strong>
-      </div>
-    </div>
-  </div>
-
   <div class="topMid">
     <div class="pill timerPill">
       <div>
-        <div class="tag" id="timerTag">Shot Clock</div>
+        <div class="tag" id="timerTag">Shot Timer</div>
         <div class="timerBig" id="timerBig">—</div>
       </div>
       <div class="timerBar" aria-hidden="true"><div class="timerFill" id="timerFill"></div></div>
@@ -4554,7 +4543,7 @@ body.lobbyOn #c{
   <div class="side">
     <div class="panelTitle">
       <h3>Live</h3>
-      <div class="mini" id="turnTimerText">—</div>
+      
     </div>
 
     <div class="sideTopActions">
@@ -4574,8 +4563,11 @@ body.lobbyOn #c{
     <div class="statRow">
       <div class="stat"><div class="k">Your Balls</div><div class="v ok" id="youBalls">1</div></div>
       <div class="stat"><div class="k">Opp Balls</div><div class="v ok" id="oppBalls">—</div></div>
-      <div class="stat"><div class="k">Your Peak</div><div class="v cyan" id="youPeak">0</div></div>
-      <div class="stat"><div class="k">Opp Peak</div><div class="v vio" id="oppPeak">—</div></div>
+    </div>
+
+    <div class="statRow rightFeature rightFeature-adv" id="advantageRow">
+      <div class="stat"><div class="k">Round Gap</div><div class="v cyan" id="roundDiff">0</div></div>
+      <div class="stat"><div class="k">Ball Gap</div><div class="v cyan" id="ballDiff">0</div></div>
     </div>
 
     <div class="logBox" id="logBox">
@@ -4811,8 +4803,8 @@ let match={
 let me={id:null,name:"You"};
 let opp={id:null,name:"Opponent",round:1,score:0,alive:true};
 
-function setStatus(s){document.getElementById("statusText").textContent=s;}
-function setMatchText(s){document.getElementById("matchText").textContent=s;}
+function setStatus(s){ const el=document.getElementById("statusText"); if(el) el.textContent=s; }
+function setMatchText(s){ const el=document.getElementById("matchText"); if(el) el.textContent=s; }
 
 function connectWS(){
   const url=(location.protocol==="https:"?"wss://":"ws://")+location.host;
@@ -4881,8 +4873,10 @@ function connectWS(){
       opp.round=data.round;
       opp.score=data.score;
       opp.alive=data.alive;
+      opp.balls=(typeof data.balls==="number") ? data.balls : opp.balls;
       document.getElementById("oppRound").textContent=opp.round;
       if(document.getElementById("oppBalls")) document.getElementById("oppBalls").textContent = (typeof opp.balls==="number" ? opp.balls : "—");
+      refreshLiveCompareStats();
       if(!opp.alive){addAlert(`Opponent lost at Round ${opp.round}.`);}
       else {addAlert(`Opponent reached Round <b>${opp.round}</b>`);}
       return;
@@ -5365,8 +5359,8 @@ class BallzGame{
     sendWS("progress",{matchId:match.matchId,round:this.round,score:this.score,alive:aliveNow,peak:this.peakBlock,balls:this.balls});
 
     document.getElementById("youRound").textContent=this.round;
-    document.getElementById("youPeak").textContent=this.peakBlock;
     document.getElementById("youBalls").textContent=this.balls;
+    refreshLiveCompareStats();
 
     if(!aliveNow){
       addAlert("<b>You lost</b> — waiting for result…");
@@ -5459,11 +5453,22 @@ class BallzGame{
       }
     }
 
-    // lose/return line
+    // danger line
     ctx.save();
-    ctx.strokeStyle="rgba(255,77,109,.40)";
-    ctx.setLineDash([10,8]);
-    ctx.lineWidth=2;
+    const dangerGrad = ctx.createLinearGradient(this.boardX, this.loseLineY, this.boardX+this.boardW, this.loseLineY);
+    dangerGrad.addColorStop(0, "rgba(255,92,128,.56)");
+    dangerGrad.addColorStop(.5, "rgba(255,122,148,.82)");
+    dangerGrad.addColorStop(1, "rgba(255,92,128,.56)");
+    ctx.strokeStyle="rgba(255,88,120,.22)";
+    ctx.lineWidth=8;
+    ctx.beginPath();
+    ctx.moveTo(this.boardX, this.loseLineY);
+    ctx.lineTo(this.boardX+this.boardW, this.loseLineY);
+    ctx.stroke();
+
+    ctx.strokeStyle=dangerGrad;
+    ctx.setLineDash([3,6]);
+    ctx.lineWidth=2.2;
     ctx.beginPath();
     ctx.moveTo(this.boardX, this.loseLineY);
     ctx.lineTo(this.boardX+this.boardW, this.loseLineY);
@@ -5478,12 +5483,23 @@ class BallzGame{
     // launcher
     ctx.save();
     ctx.beginPath();
-    ctx.arc(this.launchX,this.launchY,10,0,Math.PI*2);
-    ctx.fillStyle="rgba(54,214,255,.20)";
+    ctx.arc(this.launchX,this.launchY,12,0,Math.PI*2);
+    const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,14);
+    launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
+    launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
+    launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
+    ctx.fillStyle=launchGrad;
+    ctx.shadowColor="rgba(54,214,255,.65)";
+    ctx.shadowBlur=20;
     ctx.fill();
-    ctx.strokeStyle="rgba(54,214,255,.70)";
     ctx.lineWidth=2;
+    ctx.strokeStyle="rgba(54,214,255,.9)";
     ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(this.launchX,this.launchY,4,0,Math.PI*2);
+    ctx.fillStyle="rgba(234,242,255,.98)";
+    ctx.fill();
     ctx.restore();
 
     // balls
@@ -5603,30 +5619,27 @@ requestAnimationFrame(loop);
 
 function updateTurnTimerUI(){
   if(!G || !G.alive){
+    document.getElementById("timerTag").textContent="Shot Timer";
     setTurnTimerUI("—",0);
-    document.getElementById("turnTimerText").textContent="—";
     return;
   }
 
-  // During a shot / resolution phase, keep the timer in the TOP MIDDLE, but don't show confusing 0/5 counters.
   if(G.state!=="WAIT_SHOT"){
     const total = Math.max(1, (G.ballsInFlight && G.ballsInFlight.length) ? G.ballsInFlight.length : (safeInt(G.balls,1) || 1));
     const done  = clamp(safeInt(G.ballsReturned,0), 0, total);
     const pct   = clamp((done/total)*100, 0, 100);
 
-    document.getElementById("timerTag").textContent = "Shot Progress";
-    const label = (pct >= 99.5) ? "Ready ✓" : (done<=0 ? "Shot launched" : "Resolving…");
+    document.getElementById("timerTag").textContent = "Shot Timer";
+    const label = (pct >= 99.5) ? "Ready" : "Shot resolving…";
     setTurnTimerUI(label, pct);
-    document.getElementById("turnTimerText").textContent="—";
     return;
   }
 
-  document.getElementById("timerTag").textContent="Shot Clock";
+  document.getElementById("timerTag").textContent="Shot Timer";
   const sec=Math.ceil(G.turnTimeLeft);
   const max=Math.max(1,safeNum(G.rules.perTurnTimeSec,35));
   const pct=clamp((G.turnTimeLeft/max)*100,0,100);
   setTurnTimerUI(`${sec}s`,pct);
-  document.getElementById("turnTimerText").textContent=`Next shot in ${sec}s`;
 }
 function setTurnTimerUI(text,pct){
   document.getElementById("timerBig").textContent=text;
@@ -5657,8 +5670,8 @@ function beginGame(){
   document.body.classList.add("inMatch");
 
   document.getElementById("youRound").textContent=G.round;
-  document.getElementById("youPeak").textContent=(G.computePeakBlock?.() ?? 0);
   document.getElementById("youBalls").textContent=G.balls;
+  refreshLiveCompareStats();
 
   sendWS("progress",{matchId:match.matchId,round:G.round,score:G.score,alive:true});
 
@@ -7318,170 +7331,110 @@ body.shop-layout-a .shopPanel{
 </style>
 
 <div id="devPanelAB" class="devPanelMini" style="display:none;">
-  <div class="devHead">DEV</div>
+  <div class="devHead">DEV / LIVE HUD</div>
 
   <label class="devRow">
-    <span>Chat</span>
-    <input type="checkbox" id="devChatToggle">
+    <span>Show advantage row</span>
+    <input type="checkbox" id="devToggleAdvantage">
   </label>
 
   <label class="devRow">
-    <span>Lobby UI</span>
-    <select id="devLobbyLayout" class="devSelect" aria-label="Lobby layout"></select>
+    <span>Highlight leader</span>
+    <input type="checkbox" id="devToggleLeader">
   </label>
 
-  <button class="devAction" id="devSaveLayout">Save layout</button>
   <div class="devHint">Press <b>=</b> to open/close.</div>
 </div>
 
 <script>
+const HUD_PREFS_KEY='ballz_live_hud_prefs';
+let HUD_PREFS={ showAdvantage:true, highlightLeader:true };
+
+function loadHudPrefs(){
+  try{
+    const raw=localStorage.getItem(HUD_PREFS_KEY);
+    if(!raw) return;
+    const j=JSON.parse(raw);
+    HUD_PREFS.showAdvantage = j.showAdvantage !== false;
+    HUD_PREFS.highlightLeader = j.highlightLeader !== false;
+  }catch(e){}
+}
+function saveHudPrefs(){
+  try{ localStorage.setItem(HUD_PREFS_KEY, JSON.stringify(HUD_PREFS)); }catch(e){}
+}
+
+function refreshLiveCompareStats(){
+  const roundGap=(safeInt(G?.round,1) - safeInt(opp.round,1));
+  const ballGap=(safeInt(G?.balls,1) - safeInt(opp.balls,1));
+
+  const rd=document.getElementById('roundDiff');
+  const bd=document.getElementById('ballDiff');
+  if(rd){
+    rd.textContent = `${roundGap>=0?'+':''}${roundGap}`;
+    rd.classList.toggle('good', HUD_PREFS.highlightLeader && roundGap>0);
+    rd.classList.toggle('bad', HUD_PREFS.highlightLeader && roundGap<0);
+  }
+  if(bd){
+    bd.textContent = `${ballGap>=0?'+':''}${ballGap}`;
+    bd.classList.toggle('good', HUD_PREFS.highlightLeader && ballGap>0);
+    bd.classList.toggle('bad', HUD_PREFS.highlightLeader && ballGap<0);
+  }
+
+  const row=document.getElementById('advantageRow');
+  if(row) row.classList.toggle('hidden', !HUD_PREFS.showAdvantage);
+
+  const youRound=document.getElementById('youRound');
+  const oppRound=document.getElementById('oppRound');
+  const youBalls=document.getElementById('youBalls');
+  const oppBalls=document.getElementById('oppBalls');
+  for(const el of [youRound,oppRound,youBalls,oppBalls]){
+    if(el){ el.classList.remove('good','bad'); }
+  }
+
+  if(HUD_PREFS.highlightLeader){
+    if(youRound && oppRound){
+      if(roundGap>0){ youRound.classList.add('good'); oppRound.classList.add('bad'); }
+      if(roundGap<0){ youRound.classList.add('bad'); oppRound.classList.add('good'); }
+    }
+    if(youBalls && oppBalls){
+      if(ballGap>0){ youBalls.classList.add('good'); oppBalls.classList.add('bad'); }
+      if(ballGap<0){ youBalls.classList.add('bad'); oppBalls.classList.add('good'); }
+    }
+  }
+}
+
 (function(){
   let open=false;
   const panel=document.getElementById('devPanelAB');
-  const chatToggle=document.getElementById('devChatToggle');
-  const layoutSel=document.getElementById('devLobbyLayout');
-  const saveBtn=document.getElementById('devSaveLayout');
-
-  const STORE_KEY='ballz_lobby_layout_choice';
-  const PRESETS_KEY='ballz_lobby_layout_presets';
-  const PRESET_PREFIX='preset:';
+  const advToggle=document.getElementById('devToggleAdvantage');
+  const leadToggle=document.getElementById('devToggleLeader');
 
   function showPanel(v){
     open=!!v;
     if(panel) panel.style.display=open?'block':'none';
   }
 
-  function applyChat(on){
-    document.body.classList.toggle('chatOff', !on);
-    try{ localStorage.setItem('ballz_chat_on', on?'1':'0'); }catch(e){}
+  loadHudPrefs();
+  if(advToggle){
+    advToggle.checked=!!HUD_PREFS.showAdvantage;
+    advToggle.addEventListener('change',()=>{
+      HUD_PREFS.showAdvantage=advToggle.checked;
+      saveHudPrefs();
+      refreshLiveCompareStats();
+    });
+  }
+  if(leadToggle){
+    leadToggle.checked=!!HUD_PREFS.highlightLeader;
+    leadToggle.addEventListener('change',()=>{
+      HUD_PREFS.highlightLeader=leadToggle.checked;
+      saveHudPrefs();
+      refreshLiveCompareStats();
+    });
   }
 
-  function getPresets(){
-    try{
-      const raw=localStorage.getItem(PRESETS_KEY);
-      const arr=raw?JSON.parse(raw):[];
-      return Array.isArray(arr) ? arr.filter(x=>x && typeof x.name==='string' && typeof x.layout==='string') : [];
-    }catch(e){ return []; }
-  }
-  function setPresets(arr){
-    try{ localStorage.setItem(PRESETS_KEY, JSON.stringify(arr)); }catch(e){}
-  }
-
-  function resolveLayoutId(choice){
-    if(typeof choice!=='string' || !choice) return 'current';
-    if(choice.startsWith(PRESET_PREFIX)){
-      const name=decodeURIComponent(choice.slice(PRESET_PREFIX.length));
-      const p=getPresets().find(x=>x.name===name);
-      return (p && (p.layout==='tabs' || p.layout==='current')) ? p.layout : 'current';
-    }
-    return (choice==='tabs' || choice==='current') ? choice : 'current';
-  }
-
-  function applyLobbyLayout(layoutId){
-    const scr=document.getElementById('lobbyScreen');
-    if(!scr) return;
-    scr.classList.toggle('layoutTabs', layoutId==='tabs');
-  }
-
-  function applyChoice(choice){
-    const layoutId=resolveLayoutId(choice);
-    applyLobbyLayout(layoutId);
-    try{ localStorage.setItem(STORE_KEY, choice); }catch(e){}
-  }
-
-  function refreshLayoutSelect(setToChoice){
-    if(!layoutSel) return;
-
-    const builtin=[
-      {value:'current', label:'Lobby: Current'},
-      {value:'tabs', label:'Lobby: Tabs Top'}
-    ];
-    const presets=getPresets();
-
-    layoutSel.innerHTML='';
-    for(const o of builtin){
-      const opt=document.createElement('option');
-      opt.value=o.value;
-      opt.textContent=o.label;
-      layoutSel.appendChild(opt);
-    }
-
-    if(presets.length){
-      const sep=document.createElement('option');
-      sep.disabled=true;
-      sep.textContent='────────';
-      layoutSel.appendChild(sep);
-
-      for(const p of presets){
-        const val = PRESET_PREFIX + encodeURIComponent(p.name);
-        const opt=document.createElement('option');
-        opt.value=val;
-        opt.textContent=`Saved: ${p.name}`;
-        layoutSel.appendChild(opt);
-      }
-    }
-
-    let choice='current';
-    if(typeof setToChoice==='string' && setToChoice) choice=setToChoice;
-    else{
-      try{ choice = localStorage.getItem(STORE_KEY) || 'current'; }catch(e){}
-    }
-
-    // If choice isn't present, fall back
-    const hasChoice=[...layoutSel.options].some(o=>o.value===choice);
-    layoutSel.value = hasChoice ? choice : 'current';
-    applyChoice(layoutSel.value);
-  }
-
-  function saveCurrentLayout(){
-    const curChoice = (layoutSel && layoutSel.value) ? layoutSel.value : 'current';
-    const curLayout = resolveLayoutId(curChoice);
-
-    const suggested = curLayout==='tabs' ? 'Tabs Top' : 'Current';
-    const name = prompt('Name this layout preset:', suggested);
-    if(!name) return;
-
-    const cleanName = String(name).trim().slice(0,36);
-    if(!cleanName) return;
-
-    const presets=getPresets();
-    const payload={ name: cleanName, layout: curLayout };
-
-    const idx=presets.findIndex(p=>p.name.toLowerCase()===payload.name.toLowerCase());
-    if(idx>=0) presets[idx]=payload; else presets.push(payload);
-
-    setPresets(presets);
-
-    const newChoice = PRESET_PREFIX + encodeURIComponent(payload.name);
-    refreshLayoutSelect(newChoice);
-    if(typeof toast==='function') toast(`Saved layout: ${payload.name}`);
-  }
-
-  // init chat toggle
-  let chatOn=true;
-  try{
-    const v=localStorage.getItem('ballz_chat_on');
-    chatOn = (v===null) ? true : (v==='1');
-  }catch(e){}
-  if(chatToggle){
-    chatToggle.checked=!!chatOn;
-    chatToggle.addEventListener('change', ()=>applyChat(chatToggle.checked));
-  }
-  applyChat(!!chatOn);
-
-  // init layout selector
-  if(layoutSel){
-    layoutSel.addEventListener('change', ()=>applyChoice(layoutSel.value));
-  }
-  if(saveBtn){
-    saveBtn.addEventListener('click', saveCurrentLayout);
-  }
-  refreshLayoutSelect();
-
-  // default shop layout (keeps current CSS behavior)
   document.body.classList.add('shop-layout-a');
+  refreshLiveCompareStats();
 
-  // allow DEV button (if shown) to toggle this same panel
   const devBtn=document.getElementById('btnDev');
   if(devBtn){ devBtn.onclick=()=>showPanel(!open); }
 
@@ -8045,7 +7998,9 @@ body.inMatch .side{
   border-right:none !important;
 }
 body.inMatch .topbar{
-  inset:10px 10px auto !important;
+  top:10px !important;
+  left:10px !important;
+  right:350px !important;
 }
 
 /* Fix timer pill layout + center content */

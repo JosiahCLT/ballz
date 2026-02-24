@@ -4991,6 +4991,11 @@ function makeDefaultRules(){
   };
 }
 
+function getAimCutoffRad(){
+  const deg = clamp(safeNum(window.BALLZ_UI_PREFS?.aimCutoffDeg, 3.5), 0.8, 10);
+  return (deg*Math.PI)/180;
+}
+
 function sanitizeRules(r){
   const out=JSON.parse(JSON.stringify(r));
   out.perTurnTimeSec = clamp(safeInt(out.perTurnTimeSec,30),5,60);
@@ -5133,8 +5138,9 @@ class BallzGame{
     const dx=x-this.launchX;
     const dy=y-this.launchY;
     let a=Math.atan2(dy,dx);
-    // clamp away from too-flat shots
-    a = clamp(a, -Math.PI+0.015, -0.015);
+    // clamp away from too-flat shots (configurable from DEV panel)
+    const cutoff = getAimCutoffRad();
+    a = clamp(a, -Math.PI+cutoff, -cutoff);
     this.aimAngle=a;
   }
 
@@ -7347,12 +7353,17 @@ body.shop-layout-a .shopPanel{
     <input type="checkbox" id="devToggleTimerLeft">
   </label>
 
+  <div class="devRow" style="display:block;">
+    <span style="display:block; margin-bottom:8px;">Aim cutoff: <b id="devAimCutoffVal">3.5°</b></span>
+    <input type="range" id="devAimCutoffSlider" min="0.8" max="10" step="0.1" style="width:100%;" />
+  </div>
+
   <div class="devHint">Press <b>=</b> to open/close.</div>
 </div>
 
 <script>
 const HUD_PREFS_KEY='ballz_live_hud_prefs';
-let HUD_PREFS = Object.assign({ showAdvantage:true, highlightLeader:true, launcherUnique:true, timerLayout:'above' }, window.BALLZ_UI_PREFS || {});
+let HUD_PREFS = Object.assign({ showAdvantage:true, highlightLeader:true, launcherUnique:true, timerLayout:'above', aimCutoffDeg:3.5 }, window.BALLZ_UI_PREFS || {});
 
 function loadHudPrefs(){
   try{
@@ -7363,6 +7374,7 @@ function loadHudPrefs(){
     HUD_PREFS.highlightLeader = j.highlightLeader !== false;
     HUD_PREFS.launcherUnique = j.launcherUnique !== false;
     HUD_PREFS.timerLayout = (j.timerLayout === 'left') ? 'left' : 'above';
+    HUD_PREFS.aimCutoffDeg = clamp(safeNum(j.aimCutoffDeg, HUD_PREFS.aimCutoffDeg), 0.8, 10);
   }catch(e){}
   window.BALLZ_UI_PREFS = Object.assign({}, HUD_PREFS);
 }
@@ -7430,6 +7442,8 @@ function refreshLiveCompareStats(){
   const leadToggle=document.getElementById('devToggleLeader');
   const launcherToggle=document.getElementById('devToggleLauncherStyle');
   const timerLeftToggle=document.getElementById('devToggleTimerLeft');
+  const aimCutoffSlider=document.getElementById('devAimCutoffSlider');
+  const aimCutoffVal=document.getElementById('devAimCutoffVal');
 
   function showPanel(v){
     open=!!v;
@@ -7466,6 +7480,15 @@ function refreshLiveCompareStats(){
       HUD_PREFS.timerLayout = timerLeftToggle.checked ? 'left' : 'above';
       saveHudPrefs();
       applyTimerLayout();
+    });
+  }
+  if(aimCutoffSlider){
+    aimCutoffSlider.value = String(clamp(safeNum(HUD_PREFS.aimCutoffDeg,3.5),0.8,10));
+    if(aimCutoffVal) aimCutoffVal.textContent = `${Number(aimCutoffSlider.value).toFixed(1)}°`;
+    aimCutoffSlider.addEventListener('input',()=>{
+      HUD_PREFS.aimCutoffDeg = clamp(safeNum(aimCutoffSlider.value,3.5),0.8,10);
+      if(aimCutoffVal) aimCutoffVal.textContent = `${HUD_PREFS.aimCutoffDeg.toFixed(1)}°`;
+      saveHudPrefs();
     });
   }
 

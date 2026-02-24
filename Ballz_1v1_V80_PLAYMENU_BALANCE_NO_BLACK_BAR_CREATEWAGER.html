@@ -5048,8 +5048,8 @@ class BallzGame{
     this.loseLineY = this.boardY + this.boardH - this.cellH - this.gap; // marks final safe turn before loss
     this.returnLineY = this.loseLineY;
 
-    // launcher is below lose line
-    this.launchY = this.loseLineY + 14;
+    // launcher sits on ground at the board floor
+    this.launchY = this.boardY + this.boardH - 6;
     this.launchX = clamp(this.lastLandingX || (this.boardX + this.boardW/2), this.boardX+18, this.boardX+this.boardW-18);
 
     this.dropDist = this.cellH + this.gap;
@@ -5230,9 +5230,8 @@ class BallzGame{
           if(b.vy > 0 && b.y + b.r >= maxY){
             b.active=false;
             this.ballsReturned++;
-            if(this.ballsReturned===1){
-              this.lastLandingX=clamp(b.x, minX+12, maxX-12);
-            }
+            // keep updating so the LAST returning ball becomes next launcher position
+            this.lastLandingX=clamp(b.x, minX+12, maxX-12);
             break;
           }
 
@@ -5466,9 +5465,9 @@ class BallzGame{
     const uniqueLauncher = (window.BALLZ_UI_PREFS?.launcherUnique !== false);
     ctx.save();
     ctx.beginPath();
-    ctx.arc(this.launchX,this.launchY,12,0,Math.PI*2);
+    ctx.arc(this.launchX,this.launchY,6,0,Math.PI*2);
     if(uniqueLauncher){
-      const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,14);
+      const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,8);
       launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
       launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
       launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
@@ -5481,7 +5480,7 @@ class BallzGame{
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(this.launchX,this.launchY,4,0,Math.PI*2);
+      ctx.arc(this.launchX,this.launchY,2,0,Math.PI*2);
       ctx.fillStyle="rgba(234,242,255,.98)";
       ctx.fill();
     }else{
@@ -5499,7 +5498,7 @@ class BallzGame{
     ctx.font="900 14px ui-sans-serif,system-ui";
     ctx.textAlign="left";
     ctx.textBaseline="middle";
-    ctx.fillText(`x${this.balls}`, this.launchX + 18, this.launchY);
+    ctx.fillText(`x${this.balls}`, this.launchX + 10, this.launchY);
     ctx.restore();
 
     // balls

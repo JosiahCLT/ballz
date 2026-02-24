@@ -75,15 +75,18 @@
   .pill strong{font-weight:900; font-size:14px; letter-spacing:.1px;}
 
   .timerPill{
-    padding:10px 14px;
-    border-color: rgba(54,214,255,.22);
-    background: linear-gradient(180deg, rgba(54,214,255,.12), rgba(139,92,255,.08));
+    padding:10px 16px;
+    min-width:280px;
+    justify-content:center;
+    gap:14px;
+    border-color: rgba(54,214,255,.26);
+    background: linear-gradient(180deg, rgba(54,214,255,.14), rgba(139,92,255,.10));
   }
   .timerBig{
-    font-size:18px; font-weight:1000; letter-spacing:.4px;
+    font-size:20px; font-weight:1000; letter-spacing:.4px;
     color:var(--cyan);
-    min-width:58px; text-align:center;
-    filter: drop-shadow(0 0 14px rgba(54,214,255,.18));
+    min-width:72px; text-align:center;
+    filter: drop-shadow(0 0 14px rgba(54,214,255,.24));
   }
   .timerBar{
     width:170px; height:10px;
@@ -139,15 +142,25 @@
 
   .gameCard{
     position:relative;
-    border:1px solid rgba(36,54,104,.65);
+    border:1px solid rgba(58,88,150,.72);
     background:
-      radial-gradient(1200px 900px at 30% 15%, rgba(54,214,255,.10), transparent 62%),
-      radial-gradient(900px 700px at 80% 18%, rgba(139,92,255,.10), transparent 62%),
-      linear-gradient(180deg, rgba(10,16,34,.62), rgba(10,16,34,.28));
+      radial-gradient(1200px 900px at 30% 15%, rgba(54,214,255,.14), transparent 62%),
+      radial-gradient(900px 700px at 80% 18%, rgba(139,92,255,.14), transparent 62%),
+      linear-gradient(180deg, rgba(10,16,34,.78), rgba(6,10,24,.46));
     border-radius:22px;
     overflow:hidden;
-    box-shadow: var(--shadow);
+    box-shadow: 0 28px 70px rgba(0,0,0,.52), inset 0 0 0 1px rgba(130,170,255,.12);
     backdrop-filter: var(--glass);
+  }
+  .gameCard::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(55% 40% at 50% 0%, rgba(54,214,255,.12), transparent 68%),
+      radial-gradient(80% 65% at 50% 100%, rgba(7,10,20,0), rgba(2,5,14,.42));
+    z-index:1;
   }
 
   /* big full-screen canvas (fixes “square in a blurry box”) */
@@ -156,6 +169,7 @@
     width:100%;
     height:100%;
     display:block;
+    z-index:0;
   }
 
   .side{
@@ -4356,7 +4370,7 @@ body.lobbyOn #c{
   <div class="topMid">
     <div class="pill timerPill">
       <div>
-        <div class="tag" id="timerTag">Turn Timer</div>
+        <div class="tag" id="timerTag">Shot Clock</div>
         <div class="timerBig" id="timerBig">—</div>
       </div>
       <div class="timerBar" aria-hidden="true"><div class="timerFill" id="timerFill"></div></div>
@@ -4570,8 +4584,6 @@ body.lobbyOn #c{
         <div class="mini">Opponent + results</div>
       </div>
       <div class="logList" id="alertList"></div>
-    </div><div class="wagerPillV59" id="wagerPill">—</div>
-      <div class="mini wagerSubV59">Setting a wager posts it to chat.</div>
     </div>
 
     <div class="chatBox">
@@ -5376,8 +5388,8 @@ class BallzGame{
 
     // subtle grid
     ctx.save();
-    ctx.globalAlpha=0.10;
-    ctx.strokeStyle="rgba(155,176,208,.22)";
+    ctx.globalAlpha=0.13;
+    ctx.strokeStyle="rgba(115,156,220,.25)";
     ctx.lineWidth=1;
     for(let x=0;x<this.w;x+=48){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,this.h); ctx.stroke(); }
     for(let y=0;y<this.h;y+=48){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(this.w,y); ctx.stroke(); }
@@ -5385,8 +5397,15 @@ class BallzGame{
 
     // board frame
     ctx.save();
-    ctx.strokeStyle="rgba(36,54,104,.90)";
-    ctx.lineWidth=2;
+    const frameGrad = ctx.createLinearGradient(this.boardX, this.boardY, this.boardX+this.boardW, this.boardY+this.boardH);
+    frameGrad.addColorStop(0, "rgba(66,116,206,.95)");
+    frameGrad.addColorStop(1, "rgba(86,72,170,.92)");
+    ctx.strokeStyle=frameGrad;
+    ctx.lineWidth=2.2;
+    roundRect(this.boardX-10, this.boardY-10, this.boardW+20, this.boardH+20, 18);
+    ctx.stroke();
+    ctx.shadowColor = "rgba(54,214,255,.20)";
+    ctx.shadowBlur = 24;
     roundRect(this.boardX-10, this.boardY-10, this.boardW+20, this.boardH+20, 18);
     ctx.stroke();
     ctx.restore();
@@ -5413,7 +5432,7 @@ class BallzGame{
           ctx.fillStyle=gg;
           ctx.strokeStyle="rgba(36,54,104,.96)";
           ctx.lineWidth=1.6;
-          roundRect(x,y,this.cellW,this.cellH,0);
+          roundRect(x,y,this.cellW,this.cellH,10);
           ctx.fill(); ctx.stroke();
 
           ctx.fillStyle="rgba(234,242,255,.95)";
@@ -5595,19 +5614,19 @@ function updateTurnTimerUI(){
     const done  = clamp(safeInt(G.ballsReturned,0), 0, total);
     const pct   = clamp((done/total)*100, 0, 100);
 
-    document.getElementById("timerTag").textContent = "Shot";
-    const label = (pct >= 99.5) ? "Resolved ✓" : (done<=0 ? "Shot sent" : "Resolving…");
+    document.getElementById("timerTag").textContent = "Shot Progress";
+    const label = (pct >= 99.5) ? "Ready ✓" : (done<=0 ? "Shot launched" : "Resolving…");
     setTurnTimerUI(label, pct);
     document.getElementById("turnTimerText").textContent="—";
     return;
   }
 
-  document.getElementById("timerTag").textContent="Turn Timer";
+  document.getElementById("timerTag").textContent="Shot Clock";
   const sec=Math.ceil(G.turnTimeLeft);
   const max=Math.max(1,safeNum(G.rules.perTurnTimeSec,35));
   const pct=clamp((G.turnTimeLeft/max)*100,0,100);
   setTurnTimerUI(`${sec}s`,pct);
-  document.getElementById("turnTimerText").textContent=`Turn timer: ${sec}s`;
+  document.getElementById("turnTimerText").textContent=`Next shot in ${sec}s`;
 }
 function setTurnTimerUI(text,pct){
   document.getElementById("timerBig").textContent=text;
@@ -8029,14 +8048,18 @@ body.inMatch .topbar{
   inset:10px 10px auto !important;
 }
 
-/* Fix timer pill layout (prevents overlap between number and bar) */
+/* Fix timer pill layout + center content */
 .topbar .timerPill{
   position:relative !important;
   top:auto !important;
   left:auto !important;
   transform:none !important;
   z-index:1 !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
+.topbar .timerPill > div:first-child{ text-align:center; }
 .topbar .timerPill .timerBig{
   position:static !important;
   top:auto !important;

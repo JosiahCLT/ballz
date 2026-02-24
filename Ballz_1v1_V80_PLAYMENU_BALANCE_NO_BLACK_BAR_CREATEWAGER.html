@@ -5055,7 +5055,8 @@ class BallzGame{
     this.boardH = this.rowsVisible*this.cellH + (this.rowsVisible-1)*this.gap;
 
     this.boardX = (w - this.boardW)/2;
-    this.boardY = Math.max(90, (h - (this.boardH + 110))/2);
+    const topClear = document.body.classList.contains("timerLeft") ? 90 : 124;
+    this.boardY = Math.max(topClear, (h - (this.boardH + 110))/2);
 
     this.loseLineY = this.boardY + this.boardH - this.cellH - this.gap; // marks final safe turn before loss
     this.returnLineY = this.loseLineY;
@@ -5133,7 +5134,7 @@ class BallzGame{
     const dy=y-this.launchY;
     let a=Math.atan2(dy,dx);
     // clamp away from too-flat shots
-    a = clamp(a, -Math.PI+0.06, -0.06);
+    a = clamp(a, -Math.PI+0.015, -0.015);
     this.aimAngle=a;
   }
 
@@ -7372,6 +7373,7 @@ function saveHudPrefs(){
 
 function applyTimerLayout(){
   document.body.classList.toggle('timerLeft', HUD_PREFS.timerLayout === 'left');
+  try{ requestFitCanvas(); }catch(e){}
 }
 
 function refreshLiveCompareStats(){

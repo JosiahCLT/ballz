@@ -230,19 +230,6 @@
   .alert .t{ font-size:12px; color:var(--mut); margin-bottom:4px; }
   .alert .m{ font-size:13px; color:var(--txt); }
 
-  .chatBox{
-    border:1px solid var(--stroke2);
-    border-radius:18px;
-    background: rgba(3,6,14,.35);
-    padding:10px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-      flex:0 0 auto;
-    min-height:220px;
-    max-height: 38vh;
-    overflow:hidden;
-  }
   /* Match log panel (always present) */
   .logBox{
     border:1px solid var(--stroke2);
@@ -254,14 +241,10 @@
     gap:10px;
     flex:1 1 auto;
     min-height:220px;
-    max-height: 42vh;
+    max-height:none;
     overflow:hidden;
   }
   .logList{flex:1; min-height:120px; overflow:auto; padding-right:6px;}
-  .chatLog{flex:1; min-height:120px; overflow:auto; padding-right:6px;}
-  .msg{font-size:13px; margin:0 0 10px 0; color:var(--txt);}
-  .msg span{color:var(--mut); font-size:12px;}
-  .chatInput{display:flex; gap:8px;}
   input{
     flex:1;
     border:1px solid var(--stroke2);
@@ -4556,18 +4539,22 @@ body.lobbyOn #c{
     </div>
 
     <div class="statRow">
-      <div class="stat"><div class="k">Your Round</div><div class="v gold" id="youRound">1</div></div>
-      <div class="stat"><div class="k">Opp Round</div><div class="v gold" id="oppRound">—</div></div>
+      <div class="stat"><div class="k">Round</div><div class="v gold" id="youRound">1</div></div>
+      <div class="stat"><div class="k">Round</div><div class="v gold" id="oppRound">—</div></div>
     </div>
 
     <div class="statRow">
-      <div class="stat"><div class="k">Your Balls</div><div class="v ok" id="youBalls">1</div></div>
-      <div class="stat"><div class="k">Opp Balls</div><div class="v ok" id="oppBalls">—</div></div>
+      <div class="stat"><div class="k">Balls</div><div class="v ok" id="youBalls">1</div></div>
+      <div class="stat"><div class="k">Balls</div><div class="v ok" id="oppBalls">—</div></div>
     </div>
 
-    <div class="statRow rightFeature rightFeature-adv" id="advantageRow">
-      <div class="stat"><div class="k">Round Gap</div><div class="v cyan" id="roundDiff">0</div></div>
-      <div class="stat"><div class="k">Ball Gap</div><div class="v cyan" id="ballDiff">0</div></div>
+    <div class="statRow rightFeature rightFeature-adv" id="advantageRowRound">
+      <div class="stat"><div class="k">Round Gap</div><div class="v cyan" id="youRoundGap">+0</div></div>
+      <div class="stat"><div class="k">Round Gap</div><div class="v vio" id="oppRoundGap">+0</div></div>
+    </div>
+    <div class="statRow rightFeature rightFeature-adv" id="advantageRowBall">
+      <div class="stat"><div class="k">Ball Gap</div><div class="v cyan" id="youBallGap">+0</div></div>
+      <div class="stat"><div class="k">Ball Gap</div><div class="v vio" id="oppBallGap">+0</div></div>
     </div>
 
     <div class="logBox" id="logBox">
@@ -4578,17 +4565,6 @@ body.lobbyOn #c{
       <div class="logList" id="alertList"></div>
     </div>
 
-    <div class="chatBox">
-      <div class="panelTitle">
-        <h3>Chat</h3>
-        <div class="mini" id="netText">offline</div>
-      </div>
-      <div class="chatLog" id="chatLog"></div>
-      <div class="chatInput">
-        <input id="chatInput" placeholder="Type… (Enter to send)"/>
-        <button class="btn secondary" id="chatSend">Send</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -4811,7 +4787,7 @@ function connectWS(){
   ws=new WebSocket(url);
 
   ws.onopen=()=>{
-    document.getElementById("netText").textContent="online";
+    { const n=document.getElementById("netText"); if(n) n.textContent="online"; }
     addAlert("Connected ✅");
     const rnd=Math.floor(Math.random()*900+100);
     me.name="CLT_"+rnd;
@@ -4899,7 +4875,7 @@ function connectWS(){
   };
 
   ws.onclose=()=>{
-    document.getElementById("netText").textContent="offline";
+    { const n=document.getElementById("netText"); if(n) n.textContent="offline"; }
     addAlert("Disconnected ❌ (refresh)");
   };
 }
@@ -4910,6 +4886,7 @@ function sendWS(type,data){
 
 function pushChat(text){
   const log=document.getElementById("chatLog");
+  if(!log) return;
   const p=document.createElement("p");
   p.className="msg";
   p.innerHTML=`<span>${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span> — ${escapeHTML(text)}`;
@@ -5068,11 +5045,11 @@ class BallzGame{
     this.boardX = (w - this.boardW)/2;
     this.boardY = Math.max(90, (h - (this.boardH + 110))/2);
 
-    this.loseLineY = this.boardY + this.boardH - 6; // inside board
+    this.loseLineY = this.boardY + this.boardH - this.cellH - this.gap; // marks final safe turn before loss
     this.returnLineY = this.loseLineY;
 
     // launcher is below lose line
-    this.launchY = this.loseLineY + 18;
+    this.launchY = this.loseLineY + 14;
     this.launchX = clamp(this.lastLandingX || (this.boardX + this.boardW/2), this.boardX+18, this.boardX+this.boardW-18);
 
     this.dropDist = this.cellH + this.gap;
@@ -5380,13 +5357,18 @@ class BallzGame{
     ctx.fillStyle=g;
     ctx.fillRect(0,0,this.w,this.h);
 
-    // subtle grid
+    // ambient background glow (non-grid so rows read clearly)
     ctx.save();
-    ctx.globalAlpha=0.13;
-    ctx.strokeStyle="rgba(115,156,220,.25)";
-    ctx.lineWidth=1;
-    for(let x=0;x<this.w;x+=48){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,this.h); ctx.stroke(); }
-    for(let y=0;y<this.h;y+=48){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(this.w,y); ctx.stroke(); }
+    const glowA = ctx.createRadialGradient(this.w*0.28,this.h*0.22,40,this.w*0.28,this.h*0.22,this.w*0.62);
+    glowA.addColorStop(0,"rgba(70,130,255,.10)");
+    glowA.addColorStop(1,"rgba(70,130,255,0)");
+    ctx.fillStyle=glowA;
+    ctx.fillRect(0,0,this.w,this.h);
+    const glowB = ctx.createRadialGradient(this.w*0.74,this.h*0.35,40,this.w*0.74,this.h*0.35,this.w*0.56);
+    glowB.addColorStop(0,"rgba(139,92,255,.08)");
+    glowB.addColorStop(1,"rgba(139,92,255,0)");
+    ctx.fillStyle=glowB;
+    ctx.fillRect(0,0,this.w,this.h);
     ctx.restore();
 
     // board frame
@@ -5481,25 +5463,43 @@ class BallzGame{
     }
 
     // launcher
+    const uniqueLauncher = (window.BALLZ_UI_PREFS?.launcherUnique !== false);
     ctx.save();
     ctx.beginPath();
     ctx.arc(this.launchX,this.launchY,12,0,Math.PI*2);
-    const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,14);
-    launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
-    launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
-    launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
-    ctx.fillStyle=launchGrad;
-    ctx.shadowColor="rgba(54,214,255,.65)";
-    ctx.shadowBlur=20;
-    ctx.fill();
-    ctx.lineWidth=2;
-    ctx.strokeStyle="rgba(54,214,255,.9)";
-    ctx.stroke();
+    if(uniqueLauncher){
+      const launchGrad = ctx.createRadialGradient(this.launchX-4,this.launchY-4,2,this.launchX,this.launchY,14);
+      launchGrad.addColorStop(0, "rgba(230,247,255,.98)");
+      launchGrad.addColorStop(.55, "rgba(96,222,255,.88)");
+      launchGrad.addColorStop(1, "rgba(54,214,255,.18)");
+      ctx.fillStyle=launchGrad;
+      ctx.shadowColor="rgba(54,214,255,.65)";
+      ctx.shadowBlur=20;
+      ctx.fill();
+      ctx.lineWidth=2;
+      ctx.strokeStyle="rgba(54,214,255,.9)";
+      ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(this.launchX,this.launchY,4,0,Math.PI*2);
-    ctx.fillStyle="rgba(234,242,255,.98)";
-    ctx.fill();
+      ctx.beginPath();
+      ctx.arc(this.launchX,this.launchY,4,0,Math.PI*2);
+      ctx.fillStyle="rgba(234,242,255,.98)";
+      ctx.fill();
+    }else{
+      const bc=getComputedStyle(document.documentElement).getPropertyValue("--ballColor").trim() || "rgba(234,242,255,.96)";
+      const bg=getComputedStyle(document.documentElement).getPropertyValue("--ballGlow").trim() || "rgba(54,214,255,.32)";
+      ctx.fillStyle=bc;
+      ctx.shadowColor=bg;
+      ctx.shadowBlur=18;
+      ctx.fill();
+    }
+
+    // ball count beside launcher
+    ctx.shadowBlur=0;
+    ctx.fillStyle="rgba(234,242,255,.96)";
+    ctx.font="900 14px ui-sans-serif,system-ui";
+    ctx.textAlign="left";
+    ctx.textBaseline="middle";
+    ctx.fillText(`x${this.balls}`, this.launchX + 18, this.launchY);
     ctx.restore();
 
     // balls
@@ -5517,15 +5517,6 @@ class BallzGame{
       ctx.restore();
     }
 
-    // small hud
-    ctx.save();
-    ctx.fillStyle="rgba(234,242,255,.88)";
-    ctx.font="900 14px ui-sans-serif,system-ui";
-    ctx.textAlign="left";
-    ctx.fillText(`Round ${this.round}`, 18, 28);
-    ctx.textAlign="right";
-    ctx.fillText(`Balls ${this.balls}`, this.w-18, 28);
-    ctx.restore();
   }
 }
 
@@ -5731,17 +5722,6 @@ document.getElementById("btnForfeit").onclick=()=>{
 const forfeitSide=document.getElementById('btnForfeitSide');
 if(forfeitSide) forfeitSide.onclick=()=>{ document.getElementById('btnForfeit')?.click(); };
 
-document.getElementById("chatSend").onclick=()=>{
-  const input=document.getElementById("chatInput");
-  const text=input.value.trim();
-  if(!text) return;
-  input.value="";
-  if(!match || !match.matchId){ addAlert("Chat: not in match."); return; }
-  sendWS("chat",{matchId:match.matchId,text});
-};
-document.getElementById("chatInput").addEventListener("keydown",(e)=>{
-  if(e.key==="Enter") document.getElementById("chatSend").click();
-});
 
 /* end screen */
 function showEndScreen(payload){
@@ -5848,7 +5828,7 @@ document.getElementById("btnBackToLobby").onclick=()=>{ location.reload(); };
 if(location.protocol!=='file:' && location.host){
   connectWS();
 }else{
-  document.getElementById('netText').textContent='offline';
+  { const n=document.getElementById('netText'); if(n) n.textContent='offline'; }
   addAlert('Offline mode: solo practice (no matchmaking)');
 }
 setStatus("Idle");
@@ -7343,12 +7323,17 @@ body.shop-layout-a .shopPanel{
     <input type="checkbox" id="devToggleLeader">
   </label>
 
+  <label class="devRow">
+    <span>Unique launcher style</span>
+    <input type="checkbox" id="devToggleLauncherStyle">
+  </label>
+
   <div class="devHint">Press <b>=</b> to open/close.</div>
 </div>
 
 <script>
 const HUD_PREFS_KEY='ballz_live_hud_prefs';
-let HUD_PREFS={ showAdvantage:true, highlightLeader:true };
+let HUD_PREFS = Object.assign({ showAdvantage:true, highlightLeader:true, launcherUnique:true }, window.BALLZ_UI_PREFS || {});
 
 function loadHudPrefs(){
   try{
@@ -7357,9 +7342,12 @@ function loadHudPrefs(){
     const j=JSON.parse(raw);
     HUD_PREFS.showAdvantage = j.showAdvantage !== false;
     HUD_PREFS.highlightLeader = j.highlightLeader !== false;
+    HUD_PREFS.launcherUnique = j.launcherUnique !== false;
   }catch(e){}
+  window.BALLZ_UI_PREFS = Object.assign({}, HUD_PREFS);
 }
 function saveHudPrefs(){
+  window.BALLZ_UI_PREFS = Object.assign({}, HUD_PREFS);
   try{ localStorage.setItem(HUD_PREFS_KEY, JSON.stringify(HUD_PREFS)); }catch(e){}
 }
 
@@ -7367,27 +7355,26 @@ function refreshLiveCompareStats(){
   const roundGap=(safeInt(G?.round,1) - safeInt(opp.round,1));
   const ballGap=(safeInt(G?.balls,1) - safeInt(opp.balls,1));
 
-  const rd=document.getElementById('roundDiff');
-  const bd=document.getElementById('ballDiff');
-  if(rd){
-    rd.textContent = `${roundGap>=0?'+':''}${roundGap}`;
-    rd.classList.toggle('good', HUD_PREFS.highlightLeader && roundGap>0);
-    rd.classList.toggle('bad', HUD_PREFS.highlightLeader && roundGap<0);
-  }
-  if(bd){
-    bd.textContent = `${ballGap>=0?'+':''}${ballGap}`;
-    bd.classList.toggle('good', HUD_PREFS.highlightLeader && ballGap>0);
-    bd.classList.toggle('bad', HUD_PREFS.highlightLeader && ballGap<0);
-  }
+  const youRoundGap=document.getElementById('youRoundGap');
+  const oppRoundGap=document.getElementById('oppRoundGap');
+  const youBallGap=document.getElementById('youBallGap');
+  const oppBallGap=document.getElementById('oppBallGap');
 
-  const row=document.getElementById('advantageRow');
-  if(row) row.classList.toggle('hidden', !HUD_PREFS.showAdvantage);
+  if(youRoundGap) youRoundGap.textContent = `${roundGap>=0?'+':''}${roundGap}`;
+  if(oppRoundGap) oppRoundGap.textContent = `${(-roundGap)>=0?'+':''}${-roundGap}`;
+  if(youBallGap) youBallGap.textContent = `${ballGap>=0?'+':''}${ballGap}`;
+  if(oppBallGap) oppBallGap.textContent = `${(-ballGap)>=0?'+':''}${-ballGap}`;
+
+  const rowRound=document.getElementById('advantageRowRound');
+  const rowBall=document.getElementById('advantageRowBall');
+  if(rowRound) rowRound.classList.toggle('hidden', !HUD_PREFS.showAdvantage);
+  if(rowBall) rowBall.classList.toggle('hidden', !HUD_PREFS.showAdvantage);
 
   const youRound=document.getElementById('youRound');
   const oppRound=document.getElementById('oppRound');
   const youBalls=document.getElementById('youBalls');
   const oppBalls=document.getElementById('oppBalls');
-  for(const el of [youRound,oppRound,youBalls,oppBalls]){
+  for(const el of [youRound,oppRound,youBalls,oppBalls,youRoundGap,oppRoundGap,youBallGap,oppBallGap]){
     if(el){ el.classList.remove('good','bad'); }
   }
 
@@ -7400,6 +7387,14 @@ function refreshLiveCompareStats(){
       if(ballGap>0){ youBalls.classList.add('good'); oppBalls.classList.add('bad'); }
       if(ballGap<0){ youBalls.classList.add('bad'); oppBalls.classList.add('good'); }
     }
+    if(youRoundGap && oppRoundGap){
+      if(roundGap>0){ youRoundGap.classList.add('good'); oppRoundGap.classList.add('bad'); }
+      if(roundGap<0){ youRoundGap.classList.add('bad'); oppRoundGap.classList.add('good'); }
+    }
+    if(youBallGap && oppBallGap){
+      if(ballGap>0){ youBallGap.classList.add('good'); oppBallGap.classList.add('bad'); }
+      if(ballGap<0){ youBallGap.classList.add('bad'); oppBallGap.classList.add('good'); }
+    }
   }
 }
 
@@ -7408,6 +7403,7 @@ function refreshLiveCompareStats(){
   const panel=document.getElementById('devPanelAB');
   const advToggle=document.getElementById('devToggleAdvantage');
   const leadToggle=document.getElementById('devToggleLeader');
+  const launcherToggle=document.getElementById('devToggleLauncherStyle');
 
   function showPanel(v){
     open=!!v;
@@ -7429,6 +7425,13 @@ function refreshLiveCompareStats(){
       HUD_PREFS.highlightLeader=leadToggle.checked;
       saveHudPrefs();
       refreshLiveCompareStats();
+    });
+  }
+  if(launcherToggle){
+    launcherToggle.checked=!!HUD_PREFS.launcherUnique;
+    launcherToggle.addEventListener('change',()=>{
+      HUD_PREFS.launcherUnique=launcherToggle.checked;
+      saveHudPrefs();
     });
   }
 
@@ -7974,10 +7977,6 @@ function refreshLiveCompareStats(){
 }
 .devPanelMini .devAction:hover{ filter:brightness(1.08); }
 .devPanelMini .devAction:active{ transform: translateY(1px); }
-
-/* Chat toggle: hide chat only, let match log fill */
-body.chatOff .chatBox{ display:none !important; }
-body.chatOff .logBox{ flex:1 1 auto !important; }
 
 /* Fullscreen match layout */
 body.inMatch .wrap{

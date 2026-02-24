@@ -7341,12 +7341,17 @@ body.shop-layout-a .shopPanel{
     <input type="checkbox" id="devToggleLauncherStyle">
   </label>
 
+  <label class="devRow">
+    <span>Timer layout: text on left</span>
+    <input type="checkbox" id="devToggleTimerLeft">
+  </label>
+
   <div class="devHint">Press <b>=</b> to open/close.</div>
 </div>
 
 <script>
 const HUD_PREFS_KEY='ballz_live_hud_prefs';
-let HUD_PREFS = Object.assign({ showAdvantage:true, highlightLeader:true, launcherUnique:true }, window.BALLZ_UI_PREFS || {});
+let HUD_PREFS = Object.assign({ showAdvantage:true, highlightLeader:true, launcherUnique:true, timerLayout:'above' }, window.BALLZ_UI_PREFS || {});
 
 function loadHudPrefs(){
   try{
@@ -7356,12 +7361,17 @@ function loadHudPrefs(){
     HUD_PREFS.showAdvantage = j.showAdvantage !== false;
     HUD_PREFS.highlightLeader = j.highlightLeader !== false;
     HUD_PREFS.launcherUnique = j.launcherUnique !== false;
+    HUD_PREFS.timerLayout = (j.timerLayout === 'left') ? 'left' : 'above';
   }catch(e){}
   window.BALLZ_UI_PREFS = Object.assign({}, HUD_PREFS);
 }
 function saveHudPrefs(){
   window.BALLZ_UI_PREFS = Object.assign({}, HUD_PREFS);
   try{ localStorage.setItem(HUD_PREFS_KEY, JSON.stringify(HUD_PREFS)); }catch(e){}
+}
+
+function applyTimerLayout(){
+  document.body.classList.toggle('timerLeft', HUD_PREFS.timerLayout === 'left');
 }
 
 function refreshLiveCompareStats(){
@@ -7417,6 +7427,7 @@ function refreshLiveCompareStats(){
   const advToggle=document.getElementById('devToggleAdvantage');
   const leadToggle=document.getElementById('devToggleLeader');
   const launcherToggle=document.getElementById('devToggleLauncherStyle');
+  const timerLeftToggle=document.getElementById('devToggleTimerLeft');
 
   function showPanel(v){
     open=!!v;
@@ -7447,8 +7458,17 @@ function refreshLiveCompareStats(){
       saveHudPrefs();
     });
   }
+  if(timerLeftToggle){
+    timerLeftToggle.checked = (HUD_PREFS.timerLayout === 'left');
+    timerLeftToggle.addEventListener('change',()=>{
+      HUD_PREFS.timerLayout = timerLeftToggle.checked ? 'left' : 'above';
+      saveHudPrefs();
+      applyTimerLayout();
+    });
+  }
 
   document.body.classList.add('shop-layout-a');
+  applyTimerLayout();
   refreshLiveCompareStats();
 
   const devBtn=document.getElementById('btnDev');
@@ -8038,6 +8058,18 @@ body.inMatch .topbar{
 
 /* (extra) keep timer bar visible and aligned */
 .topbar .timerPill .timerBar{ flex:0 0 auto; }
+
+/* optional timer layout from DEV panel */
+body.timerLeft .topbar .timerPill{
+  flex-direction:row !important;
+  gap:12px;
+}
+body.timerLeft .topbar .timerPill > div:first-child{
+  text-align:left;
+}
+body.timerLeft .topbar .timerPill .timerBar{
+  width:170px;
+}
 </style>
 
 </body>
